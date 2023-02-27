@@ -1,9 +1,6 @@
-// Classe permettant d'hasher un message avec l'algorithme SHA-256
 import java.security.MessageDigest;
-
 public class SHA2 {
-
-    public String encrypt(String message) {
+    public static String encrypt(String message) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(message.getBytes("UTF-8"));
@@ -20,5 +17,4 @@ public class SHA2 {
             throw new RuntimeException(ex);
         }
     }
-
 }
