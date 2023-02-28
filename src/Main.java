@@ -2,13 +2,26 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
+import java.util.Arrays;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws IOException {
         //   test();
      // Seul le serveur est utilisé dans la partie Github, le client est sur Android
        Server server = new Server(52000);
-        //  test_client(); PLUS BESOIN DU CLIENT, le client est sur Android maintenant
+       // test_elo();
+      //    test_client();
+    }
+
+    public static void test_elo(){
+        Partie partie1 = new Partie("Joueur A", "Joueur B", 1200, 1000, 1.0);
+        Partie partie2 = new Partie("Joueur C", "Joueur D", 800, 1500, 1);
+
+        List<Partie> parties = Arrays.asList(partie1, partie2);
+
+        Elo.updateElo(parties);
+                //String joueur1, String joueur2, int eloJoueur1, int eloJoueur2, double score
     }
     public static void test_client(){
         Client client = null;
