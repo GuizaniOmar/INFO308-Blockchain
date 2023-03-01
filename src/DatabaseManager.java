@@ -25,7 +25,7 @@ public class DatabaseManager {
         return instance;
     }
 
-    public void insert(String table, String[] columns, String[] values) {
+    public boolean insert(String table, String[] columns, String[] values) {
         StringBuilder columnBuilder = new StringBuilder();
         StringBuilder valueBuilder = new StringBuilder();
         for (int i = 0; i < columns.length; i++) {
@@ -43,8 +43,11 @@ public class DatabaseManager {
                 statement.setString(i + 1, values[i]);
             }
             statement.execute();
+            return true;
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("La base de données n'a pas pu inseré " + valueBuilder.toString());
+            return false;
+            // e.printStackTrace();
         }
     }
 
