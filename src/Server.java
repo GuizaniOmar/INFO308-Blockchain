@@ -63,7 +63,7 @@ public class Server {
                             handleLogin();
                             break;
                         case 2:
-                            handleDeleteAccount();
+                            handlePartiesASigner();
                             break;
                         case 3:
                             handleEnvoyerPartie();
@@ -230,15 +230,52 @@ public class Server {
             }
 
         }
-        private void handleDeleteAccount() throws IOException {
-            String username = inputStream.readUTF();
-            if (clients.containsKey(username)) {
-                clients.remove(username);
-                System.out.println("Suppression du compte de l'utilisateur " + username);
-                outputStream.writeUTF("Compte supprimé avec succès");
-            } else {
-                outputStream.writeUTF("Impossible de supprimer le compte : utilisateur non connecté");
+        private void handlePartiesASigner() throws IOException {
+
+            DatabaseManager db = DatabaseManager.getInstance();
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "Timestamp Like '%'");
+                try {
+                    int i=0;
+                    while (result.next()) {
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("ID", result.getInt("_id"));
+                        map2.put("Timestamp", result.getString("Timestamp"));
+                       map2.put("HashageTimestampClefs", result.getString("HashageTimestampClefs"));
+                        map2.put("ClefPubliqueJ1", result.getString("ClefPubliqueJ1"));
+                        map2.put("ClefPubliqueJ2", result.getString("ClefPubliqueJ2"));
+                        map2.put("ClefPubliqueArbitre", result.getString("ClefPubliqueArbitre"));
+                        map2.put("VoteJ1", result.getString("VoteJ1"));
+                        map2.put("VoteJ2", result.getString("VoteJ2"));
+                        map2.put("VoteArbitre", result.getString("VoteArbitre"));
+
+                                System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
             }
+
+            // Provisoire après ça sera amélioré
+
+            System.out.println("Json envoyée à un client");
+            PaquetJson paquet = new PaquetJson(contenue);
+            outputStream.writeInt(paquet.getType());
+            outputStream.writeUTF(paquet.getMsg());
+            System.out.println(paquet.getMsg());
+            outputStream.flush();
+
         }
+
     }
 }

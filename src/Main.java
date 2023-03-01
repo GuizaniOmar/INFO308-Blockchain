@@ -29,7 +29,7 @@ public class Main {
             client = new Client("localhost", 52000);
             client.login("user1", "motdepasse1");
 
-            client.deleteAccount("user1");
+
             client.json();
         } catch (IOException e) {
             throw new RuntimeException(e);

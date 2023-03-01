@@ -57,13 +57,6 @@ public class Client  {
         }
         return response;
     }
-    public void deleteAccount(String username) throws IOException {
-        PaquetDeleteAccount paquet = new PaquetDeleteAccount(username);
-        outputStream.writeInt(paquet.getType());
-        outputStream.writeUTF(paquet.getUsername());
-        outputStream.flush();
-        String response = inputStream.readUTF();
-        System.out.println("Réponse du serveur pour la suppression: " + response);
-    }
+
 }
 

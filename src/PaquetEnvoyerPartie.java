@@ -8,7 +8,7 @@ public class PaquetEnvoyerPartie extends Paquet {
     private String timestampPartie;
 
     public PaquetEnvoyerPartie(String timestampPartie, String hashPartie,String ClefPubliqueJ1, String ClefPubliqueJ2, String ClefPubliqueArbitre) {
-        super(Paquet.SEND_GAME);
+        super(Paquet.PAQUET_A_SIGNER);
         this.ClefPubliqueJ1 = ClefPubliqueJ1;
         this.ClefPubliqueJ2 = ClefPubliqueJ2;
         this.ClefPubliqueArbitre = ClefPubliqueArbitre;
