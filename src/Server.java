@@ -1,6 +1,7 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.ResultSet;
@@ -16,7 +17,11 @@ public class Server {
 
     public Server(int port) throws IOException {
         clients = new HashMap<>();
-        serverSocket = new ServerSocket(port);
+
+        int backlog = 50;
+        ServerSocket serverSocket = new ServerSocket(port, backlog);
+
+        // serverSocket = new ServerSocket(port);
         DatabaseManager db = DatabaseManager.getInstance();
 
         // Créer une table de type PseudoClefs composées : d'un id, d'un pseudo, d'une clef publique et d'une clef privée encryptée pour garantir la sécurité(seul l'utilisateur connait la clef de décryptage de la clef)
@@ -24,7 +29,7 @@ public class Server {
         String[] typesPseudoClefs = {"INTEGER PRIMARY KEY AUTOINCREMENT", "TEXT NOT NULL UNIQUE", "TEXT NOT NULL UNIQUE","TEXT"};
         db.createTable("PseudosClefs", colonnesPseudoClefs, typesPseudoClefs);
 
-        String[] colonnesParties = {"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
+        String[] colonnesParties = {"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
         String[] typesParties = {"INTEGER PRIMARY KEY AUTOINCREMENT", "INTEGER NOT NULL", "TEXT NOT NULL", "TEXT NOT NULL","TEXT NOT NULL","TEXT NOT NULL  CHECK (ClefPubliqueJ1 <> ClefPubliqueJ2 AND ClefPubliqueJ1 <> ClefPubliqueArbitre AND ClefPubliqueJ2 <> ClefPubliqueArbitre)","TEXT","TEXT","TEXT"};
         db.createTable("Parties", colonnesParties, typesParties);
 
@@ -35,7 +40,7 @@ public class Server {
                     Socket clientSocket = serverSocket.accept();
                     new Thread(new ClientHandler(clientSocket)).start();
                 } catch (Exception e) {
-                    System.out.println("Erreur de connexion");
+                    System.out.println("Serveur: La connexion n'a pas pu être accepté");
                     //  e.printStackTrace();
                 }
             }
@@ -121,7 +126,7 @@ public class Server {
             String[] typesPseudoClefs = {"INTEGER PRIMARY KEY AUTOINCREMENT", "TEXT NOT NULL UNIQUE", "TEXT NOT NULL UNIQUE","TEXT"};
             db.createTable("PseudosClefs", colonnesPseudoClefs, typesPseudoClefs);
 
-            String[] colonnesParties = {"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
+            String[] colonnesParties = {"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
             String[] typesParties = {"INTEGER PRIMARY KEY AUTOINCREMENT", "TEXT NOT NULL", "TEXT NOT NULL", "TEXT NOT NULL","TEXT NOT NULL","TEXT NOT NULL  CHECK (ClefPubliqueJ1 <> ClefPubliqueJ2 AND ClefPubliqueJ1 <> ClefPubliqueArbitre AND ClefPubliqueJ2 <> ClefPubliqueArbitre)","TEXT","TEXT","TEXT"};
             db.createTable("Parties", colonnesParties, typesParties);
 
@@ -139,14 +144,14 @@ public class Server {
             outputStream.writeInt(Paquet.SEND_GAME);
             String[] values = {timestampPartie, hashPartie,clefPubliqueJ1,clefPubliqueJ2,clefPubliqueArbitre,"","",""};
             try {
-                db.insert("Parties", new String[] {"Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, values);
+                db.insert("Parties", new String[] {"Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, values);
                 outputStream.writeUTF("Envoie de création de partie reçues ! ");
             }catch(Exception e){
 
                 outputStream.writeUTF("Ajout de la partie  raté ! " + e.getMessage());
             }
             // ON VERIFIE SI DANS LA BASE DE DONNEES y'a un compte avec le même pseudo
-            ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "HashageTimestampClefs = '" + hashPartie + "'");
+            ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "HashPartie = '" + hashPartie + "'");
             try {
                 if (result.next()) {
                     outputStream.writeUTF("Ajout de la partie "+hashPartie+" réussie");
@@ -170,7 +175,7 @@ public class Server {
             String[] typesPseudoClefs = {"INTEGER PRIMARY KEY AUTOINCREMENT", "TEXT NOT NULL UNIQUE", "TEXT NOT NULL UNIQUE","TEXT"};
             db.createTable("PseudosClefs", colonnesPseudoClefs, typesPseudoClefs);
 
-            String[] colonnesParties = {"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
+            String[] colonnesParties = {"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"};
             String[] typesParties = {"INTEGER PRIMARY KEY AUTOINCREMENT", "TEXT NOT NULL", "TEXT NOT NULL", "TEXT NOT NULL","TEXT NOT NULL","TEXT NOT NULL  CHECK (ClefPubliqueJ1 <> ClefPubliqueJ2 AND ClefPubliqueJ1 <> ClefPubliqueArbitre AND ClefPubliqueJ2 <> ClefPubliqueArbitre)","TEXT","TEXT","TEXT"};
             db.createTable("Parties", colonnesParties, typesParties);
             int k = 1;
@@ -239,14 +244,14 @@ public class Server {
             // On prépare le hash
             String contenue = "";
             try {
-                ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashageTimestampClefs","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "Timestamp Like '%'");
+                ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "Timestamp Like '%'");
                 try {
                     int i=0;
                     while (result.next()) {
                         Map<String, Object> map2 = new HashMap<>();
                         map2.put("ID", result.getInt("_id"));
                         map2.put("Timestamp", result.getString("Timestamp"));
-                       map2.put("HashageTimestampClefs", result.getString("HashageTimestampClefs"));
+                        map2.put("HashPartie", result.getString("HashPartie"));
                         map2.put("ClefPubliqueJ1", result.getString("ClefPubliqueJ1"));
                         map2.put("ClefPubliqueJ2", result.getString("ClefPubliqueJ2"));
                         map2.put("ClefPubliqueArbitre", result.getString("ClefPubliqueArbitre"));
@@ -254,7 +259,7 @@ public class Server {
                         map2.put("VoteJ2", result.getString("VoteJ2"));
                         map2.put("VoteArbitre", result.getString("VoteArbitre"));
 
-                                System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
                         contenue += "|" + Json.serialize(map2) + "|";
 
                         i++;

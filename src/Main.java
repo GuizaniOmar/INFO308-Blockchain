@@ -1,19 +1,65 @@
 import java.io.IOException;
+import java.net.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws IOException {
         //   test();
      // Seul le serveur est utilisé dans la partie Github, le client est sur Android
-       Server server = new Server(52000);
+   //     liste_ips();
+        Server server = new Server(52000);
+        try {
+            PingIP.main(args);
+            // On liste toutes les ips !
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
        // test_elo();
-      //    test_client();
+     //     test_client();
+       // test_p2P();
     }
 
+    public static void liste_ips() throws UnknownHostException {
+        try {
+            // Obtenir toutes les adresses IP locales de l'ordinateur
+            InetAddress[] adresses = InetAddress.getAllByName(InetAddress.getLocalHost().getHostName());
+
+            // Afficher toutes les adresses IP locales
+            for (int i = 0; i < adresses.length; i++) {
+                String ip = adresses[i].getHostAddress();
+                if (ip.startsWith("192.")) {
+                    System.out.println("Adresse IP locale: " + ip);}
+                    else{
+                    System.out.println("Adresse IP non-local: " + ip);}
+
+            }
+        } catch (UnknownHostException e) {
+            // Gérer les erreurs
+            e.printStackTrace();
+        }
+
+
+    }
+    public static void test_p2P() throws IOException {
+ //     P2PServer server = new P2PServer(52000);
+   //     server.start();
+
+        // Pour utiliser le client
+        P2PClient client = new P2PClient(InetAddress.getByName("93.115.97.128"), 52000);
+        client.sendMessage("Bonjour tout le monde!");
+         String message = client.receiveMessage();
+        System.out.println("Message reçu: " + message);
+        client.close();
+
+        // Pour fermer le serveur
+      //  server.close();
+    }
     public static void test_elo(){
         Partie partie1 = new Partie("Joueur A", "Joueur B", 1200, 1000, 1.0);
         Partie partie2 = new Partie("Joueur C", "Joueur D", 800, 1500, 1);
@@ -26,7 +72,7 @@ public class Main {
     public static void test_client(){
         Client client = null;
         try {
-            client = new Client("localhost", 52000);
+            client = new Client("192.168.1.57", 52001);
             client.login("user1", "motdepasse1");
 
 
