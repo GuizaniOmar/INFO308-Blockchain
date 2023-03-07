@@ -1,3 +1,4 @@
+
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
@@ -9,7 +10,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 public class RSA {
 
+    private static final String ALGORITHM_CIPHER = "RSA/ECB/PKCS1Padding";
     private static final String ALGORITHM = "RSA";
+
     private static KeyPairGenerator keyGen;
     private static KeyPair pair;
     public static PrivateKey privateKey;
@@ -29,8 +32,8 @@ public class RSA {
         keyGen.initialize(2048);
 
 
-            privateKey = RSA.privateKeyFromString(privKey);
-            publicKey = RSA.publicKeyFromString(pubKey);
+        privateKey = RSA.privateKeyFromString(privKey);
+        publicKey = RSA.publicKeyFromString(pubKey);
 
         if (publicKey == null ||  privateKey == null) {
             System.out.println("Erreur : Les clefs entrées ne sont pas correctes ! Nous allons te générer une autre pair de clef" );
@@ -42,7 +45,7 @@ public class RSA {
 
     }
     public static String encode(String message, PrivateKey key) throws Exception {
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM_CIPHER);
         cipher.init(Cipher.ENCRYPT_MODE, key);
         byte[] encoded = cipher.doFinal(message.getBytes());
         return Base64.getEncoder().encodeToString(encoded);
@@ -50,7 +53,7 @@ public class RSA {
 
     public static String decode(String message, PublicKey key) throws Exception {
         byte[] decoded = Base64.getDecoder().decode(message);
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
+        Cipher cipher = Cipher.getInstance(ALGORITHM_CIPHER);
         cipher.init(Cipher.DECRYPT_MODE, key);
         byte[] decrypted = cipher.doFinal(decoded);
         return new String(decrypted);
@@ -65,7 +68,7 @@ public class RSA {
         return Base64.getEncoder().encodeToString(publicKey.getEncoded());
     }
 
-       public static PublicKey publicKeyFromString(String publicKeyString) throws Exception {
+    public static PublicKey publicKeyFromString(String publicKeyString) throws Exception {
         try {
             byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyString);
             X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);

@@ -12,8 +12,10 @@ public class Main {
         //   test();
      // Seul le serveur est utilisé dans la partie Github, le client est sur Android
    //     liste_ips();
+
         Server server = new Server(52000);
         try {
+
             PingIP.main(args);
             // On liste toutes les ips !
         } catch (InterruptedException e) {

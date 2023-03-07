@@ -76,6 +76,9 @@ public class Server {
                         case 4:
                             handleJson(); //Envoie
                             break;
+                        case 5:
+                            handleAjouterSignature();
+                            break;
                     }
                 }
             } catch (Exception e) {
@@ -92,6 +95,7 @@ public class Server {
             String clefPublique = inputStream.readUTF();
             String clefPriveeCryptee = inputStream.readUTF();
             System.out.println("Connexion de l'utilisateur " + username);
+            System.out.println("ClefPublique: " + clefPublique);
             DatabaseManager db = DatabaseManager.getInstance();
 
             String[] values = {username, clefPublique,clefPriveeCryptee};
@@ -279,6 +283,79 @@ public class Server {
             outputStream.writeUTF(paquet.getMsg());
             System.out.println(paquet.getMsg());
             outputStream.flush();
+
+        }
+
+        private void handleAjouterSignature() throws Exception {
+            // On va tenter de rajouter le compte dans la base de données...
+            String hashPartie = inputStream.readUTF();
+            String acteurSignature = inputStream.readUTF();
+            String signature = inputStream.readUTF();
+            outputStream.writeInt(Paquet.SIGNATURE);
+
+            if (PaquetAjouterSignature.isVoteActeur(acteurSignature)){
+                DatabaseManager db = DatabaseManager.getInstance();
+
+                try {
+                    ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "HashPartie = '" + hashPartie + "'");
+                    if (result.next()){
+                        String nomColonneClef = PaquetAjouterSignature.getClefActeur(acteurSignature);
+                        System.out.println("nomColonneClef : " + nomColonneClef);
+                        if (nomColonneClef != null){
+                            String ClefPublique = result.getString(nomColonneClef);
+                            System.out.println("ClefPublique : " + ClefPublique);
+                            System.out.println("signature : " + signature);
+                            System.out.println("vote crypter : " + RSA.encode("4f6e9abd8338f6dbb869e1a9c53b74455c4281dbc6edf6635875755303d72cf8-V",RSA.privateKeyFromString("MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDCSY3+GOveA0K7yDKg2xFhGgKu/YiuikWLliaQl+q/p2fU9Ew5GsSi+3EdX4JOaUdffch1bmtjSafcfaAJ+RFelbGBVBDW41b3rEWg0UypnofJOgL43R/fWDk/FvGCaX3v0YHZjQSDGUsXUgJRUfbXA9ODhJZSzgpJj0KSVaFnLi0uzIr/i96F66wRrxJoJUD+eWWm5nzvWtyXcsZc/MZkvzPqKJhb5EjTB338bGo0YZM7FBVIcNOa3CuLTfSlkkUAIqDjNPwVI7Zt6SrdIHFFCz4JpEa6SW8Xg+F+jQ/u/P5q4HzGAYn5tiG6Amh7q5tManV3r4w3MYvyIeobDfSzAgMBAAECggEAUtRQ+NdfF1OEi9IZ44IBssgIBNqJ/v9sDsqAvnxF1FdmaN+N73p+Ao3393HUd+FiUE+ruoTMu5OXQOU96YKJ6S0gc+aHF1XsqcKEHL+eU2IGub9FrRt4jxtprH/3joWy7x7+oOUB23JZFSQdYNX0yk4TSqqn+71jnWC6HPDs0rOaz1FfS3we/Ml7nOGxhhvcDDQz7c6Qd5XAp5nTyxWK7vvX0e68IH3vAaJO2N1oVKxnDShRDtf0avNkcI3+3bshtbRMyTGFsOSW1JPnl8DwllJucWAC22LsSZG+z7agenNiO+rxXSIsX5u38D1YAXxAC9//wfvaxVBInHExkn+SQQKBgQDktaWkYzy8k0XI50WzOfgmHEnFghskj0pSC/WlJIMAWF0oUd7JqN5x+oNZhhJDNamQ+MXEfO7YNJFB5G5YqDWCIi8CL7v3ximorTiJSff6I4Axmk/PKh8ym+qt+tw/fLhnZmc1PLhndssS6ialKHyMDakEo8zGmEKxGKjq+Mvp+wKBgQDZeGrTb07tPKPU0FnGBaDvkA0ZnrS2Gy3Sg1Rqzi202s6KRwxvvw/QCGfYIMWsIBBDs5jEndUlxudXIDL+SZNytLO3WlGg2uKsb7SDtU+auZOB+RyAG6zStN0cMRGIIEiBU7yhXVi74At/SoOeGWvPqAOPha2oxEBYxapFuXcaqQKBgBakRPm5OVIR4l65RpUvr/lV45fCAZ3k8Z6dwHvQ2Yc3OEG9mSitpxfxjP9X3ob40QihGDMTizGsQpUbYDE2tdVkPPMidqFY5NbmDyrIP9xrl01R0YTYzq3b8ae3pgZC+p6B7MXAdSEJCaGdvKWtFGdpEsp6zNL8T93oaxCYANfxAoGBAKyKcs9QZ+GoFCA8Mo3/V0HbG9mw5pX5mHCGjEq1TORKGkbxufdLMuOOV73NuqgnRGBCtTmCNGPlnRSuUmcYvyjqIBCgU1V5dRD1C9bX2tHa3SLpH+iwjH0czLWaZNuJKZ2ab3Xj1www5U5YM3cTmktGdZTArhjRpHAKXF83mD0JAoGBAN+5zQ8w7qmnOwDNkHgYx14NiSKRhltmOW4gMXGswc/JdbOVN8GYNY4sDAy4pPgUXKlap0rr8rCDz1cLe5z4q23Y+6RZTlM0F4eO0m/JqVigZUzUzJey1mXyqD2EEgNra3Zh6QhFkpGUKHQUiQAqud5OP3oNba7ez6ojGlCsh2Ol")));
+
+
+                             //   System.out.println("On va décoder : " + RSA.decode("beqAMKOyE6+Sb1XCxi/S69dUhb1cF6VDpVzWzANN39jO2M8gDycO09CAswS0ad20OPFfjRqAeAEG3NfwRWV6mlyH2jSfEI39Rde+aTflWwr3Elyfn+6eZrMiDmqSCnn9nD0K+zg1xmNa3DeFyz+8BxHuNr/yxPtTFmXUpLqCqf/wig7oT3Xb7OWNGZssHD4JGTmiK0JoHUd/i6Lh+gbJ2MQ4v31rE2WbCouYZ2wcf79PO4dw4ejaRESnwTtQrB609WGV1/j7pmivOjuu28tziMS+nan3UFAxI5KlGLR9dqD3It+J2v+8zk4/8wkG+wGyoqEJtyhFLdq4waKlFD8SwQ==",RSA.publicKeyFromString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwkmN/hjr3gNCu8gyoNsRYRoCrv2IropFi5YmkJfqv6dn1PRMORrEovtxHV+CTmlHX33IdW5rY0mn3H2gCfkRXpWxgVQQ1uNW96xFoNFMqZ6HyToC+N0f31g5Pxbxgml979GB2Y0EgxlLF1ICUVH21wPTg4SWUs4KSY9CklWhZy4tLsyK/4veheusEa8SaCVA/nllpuZ871rcl3LGXPzGZL8z6iiYW+RI0wd9/GxqNGGTOxQVSHDTmtwri030pZJFACKg4zT8FSO2bekq3SBxRQs+CaRGuklvF4Phfo0P7vz+auB8xgGJ+bYhugJoe6ubTGp1d6+MNzGL8iHqGw30swIDAQAB")));
+                              String  rsaDecode = RSA.decode(signature, RSA.publicKeyFromString(ClefPublique));
+
+
+
+                            if (rsaDecode.contains(hashPartie)){
+                                db.update("Parties", new String[]{acteurSignature}, new String[]{signature}, "HashPartie = '" + hashPartie + "'");
+                                outputStream.writeUTF("Signature ajoutée ! ");
+                            }else{
+                                outputStream.writeUTF("La signature est incorrecte ! ");
+                            }
+                        } else{
+                            System.out.println("Le nom de l'acteur est incorrect ! ");
+                            outputStream.writeUTF("Le nom de l'acteur est incorrect ! ");
+                        }
+
+                    }else
+                        outputStream.writeUTF("La partie n'existe pas ! ");
+
+
+                }catch(Exception e){
+
+                    outputStream.writeUTF("Ajout de la signature raté #1 " + e.getMessage());
+                }
+                // ON VERIFIE SI DANS LA BASE DE DONNEES y'a un compte avec le même pseudo
+                ResultSet result = db.select("Parties", new String[]{"_id", "Timestamp","HashPartie","ClefPubliqueJ1","ClefPubliqueJ2","ClefPubliqueArbitre","VoteJ1","VoteJ2","VoteArbitre"}, "HashPartie = '" + hashPartie + "'");
+                try {
+                    if (result.next()) {
+                        String signatureClef = result.getString(acteurSignature);
+                        if (signatureClef == acteurSignature)
+                        outputStream.writeUTF("Ajout de la signature réussie ! ");
+                        else
+                            outputStream.writeUTF("L'update n'a pas été fait ! ");
+                    }
+                } catch (Exception e) {
+                    outputStream.writeUTF("La partie avec le hash " + hashPartie + " n'existe pas ! ");
+
+                }
+
+                outputStream.flush();
+
+            }
+            else{
+                outputStream.writeUTF("Erreur acteur signature");
+                outputStream.writeUTF("Veuillez encoder un bon acteur");
+                outputStream.flush();
+            }
+
 
         }
 
