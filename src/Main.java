@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.security.Security;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.ParseException;
@@ -13,7 +15,11 @@ public class Main {
      // Seul le serveur est utilisé dans la partie Github, le client est sur Android
    //     liste_ips();
 
+
+
+
         Server server = new Server(52000);
+
         try {
 
             PingIP.main(args);
