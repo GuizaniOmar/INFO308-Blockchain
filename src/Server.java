@@ -13,12 +13,13 @@ import java.util.Map;
 public class Server {
     private Map<String, DataOutputStream> clients;
     private ServerSocket serverSocket;
+    private static String hashServer = null;
     private List<String> authorizedUsernames = List.of("user1", "user2", "user3");
 
     public Server(int port) throws IOException {
         clients = new HashMap<>();
 
-        int backlog = 50;
+        int backlog = 200;
         ServerSocket serverSocket = new ServerSocket(port, backlog);
 
         // serverSocket = new ServerSocket(port);
@@ -38,6 +39,8 @@ public class Server {
             while (true) {
                 try {
                     Socket clientSocket = serverSocket.accept();
+                    System.out.println("Ip : " + clientSocket.getInetAddress().getHostAddress() + " a rejoint le serveur");
+
                     new Thread(new ClientHandler(clientSocket)).start();
                 } catch (Exception e) {
                     System.out.println("Serveur: La connexion n'a pas pu être accepté");
@@ -52,6 +55,8 @@ public class Server {
         private DataInputStream inputStream;
         private DataOutputStream outputStream;
 
+        private String hashClient = null; //Hash du client
+
         public ClientHandler(Socket socket) throws IOException {
             this.socket = socket;
             inputStream = new DataInputStream(socket.getInputStream());
@@ -64,6 +69,9 @@ public class Server {
                 while (true) {
                     int type = inputStream.readInt();
                     switch (type) {
+                        case 0:
+                            handleMessage();
+                            break;
                         case 1:
                             handleLogin();
                             break;
@@ -79,6 +87,29 @@ public class Server {
                         case 5:
                             handleAjouterSignature();
                             break;
+                        case 6:
+                            handleRecevoirComptes();
+                            break;
+
+                        case 20:
+                            handleComptes();
+                            break;
+
+                        case 21:
+                            handleConfirmations();
+                            break;
+                        case 22:
+                            handleParties();
+                            break;
+                        case 23:
+                            handlePartiesARecevoir();
+                            break;
+                            case 24:
+                                        handlePartiesAEnvoyer();
+                                        break;
+                        case 25:
+                            handlePlaintes();
+                            break;
                     }
                 }
             } catch (Exception e) {
@@ -86,7 +117,21 @@ public class Server {
                 // e.printStackTrace();
             }
         }
+        private void handleMessage() throws IOException {
+            // On va tenter de rajouter le compte dans la base de données...
 
+
+            String username = inputStream.readUTF();
+            System.out.println(" ---- précédent hash du client  :  " + hashClient);
+            System.out.println("Le hash du client a été enregistré à  :  " + username);
+            hashClient = username;
+
+            System.out.println("Le hash du client est  :  " + hashClient);
+
+            outputStream.writeUTF("Le message a bien été recue " + username);
+
+            outputStream.flush();
+        }
         private void handleLogin() throws IOException {
             // On va tenter de rajouter le compte dans la base de données...
 
@@ -121,6 +166,441 @@ public class Server {
             outputStream.flush();
 
         }
+
+        private void handleRecevoirComptes() throws IOException {
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            String message = inputStream.readUTF();
+            if (message.equals("start")) {
+                String msg = inputStream.readUTF();
+                while (!msg.equals("end")) {
+                    //JSON parser pour récuperer les clés publiques
+
+                    List<String> list = Json.extraireMots(msg);
+                    int c;
+                    for (c = 0; c < list.size(); c++) {
+                        //     System.out.println("Element " + c + " : " + list.get(c));
+                        // On tente d'ajouter l'élement dans une base de données !
+                        Map<String, Object> obj = (Map<String, Object>) Json.deserialize(list.get(c));
+                        String pseudo = (String) obj.get("pseudo");
+                        // On récupère pas la clef privée String clefPriveeCryptee = (String) obj.get("clefPrivee");
+                        String clefPublique = (String) obj.get("clefPublique");
+
+                        if ((pseudo != null) && (clefPublique != null)) {
+                            ajouterCompte(pseudo,clefPublique);
+                        } else {
+                            System.out.println("ERREUR ! " + "pseudo: " + pseudo + " clefpublique: " + clefPublique);
+                        }
+                        // CODE POUR RAJOUTER A LA BASE DE DONNEES...
+                    }
+
+                    msg = inputStream.readUTF();
+
+                }
+                System.out.println("Serveur nous envoie : " + message);
+            }
+            System.out.println("Serveur nous envoie : " + message);
+
+        }
+
+        public void ajouterCompte(String pseudo, String clefPublique, String clefPrivee) {
+            DatabaseManager db = DatabaseManager.getInstance(); // On récupère une instance de la base de données
+
+            String[] values = {pseudo, clefPublique, clefPrivee};
+            try {
+                db.insert("compte", new String[]{"pseudo","clefPublique","clefPrivee"}, values);
+            }catch(Exception e){
+                System.out.println("Erreur lors de l'ajout de la partie");
+            }
+
+        }
+
+        public void ajouterCompte(String pseudo, String clefPublique) {
+            ajouterCompte(pseudo, clefPublique, "");
+        }
+
+        private void handleComptes() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Json reçu de quelqu'un");
+
+          //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("compte", new String[]{"_id", "pseudo", "clefPublique", "clefPrivee"}, "Pseudo Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("pseudo", result.getString("Pseudo"));
+                        map2.put("clefPublique", result.getString("ClefPublique"));
+                  // On ne se partage pas les comptes !      map2.put("clefPrivee", result.getString("clefPrivee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+        private void handleConfirmations() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Demande de liste de confirmation reçues");
+
+            //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("confirmation", new String[]{"_id", "hashPartie", "hashVote", "clefPublique","signatureHashVote"}, "hashPartie Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("hashPartie", result.getString("hashPartie"));
+                        map2.put("hashVote", result.getString("hashVote"));
+                        map2.put("clefPublique", result.getString("clefPublique"));
+                        map2.put("signatureHashVote", result.getString("signatureHashVote"));
+
+
+                        // On ne se partage pas les comptes !      map2.put("ClefPriveeCryptee", result.getString("ClefPriveeCryptee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+        private void handlePlaintes() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Demande de liste de confirmation reçues");
+
+            //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("plainte", new String[]{"_id", "hashPartie", "hashVote", "clefPublique","signatureHashVote"}, "hashPartie Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("hashPartie", result.getString("hashPartie"));
+                        map2.put("hashVote", result.getString("hashVote"));
+                        map2.put("clefPublique", result.getString("clefPublique"));
+                        map2.put("signatureHashVote", result.getString("signatureHashVote"));
+
+
+                        // On ne se partage pas les comptes !      map2.put("ClefPriveeCryptee", result.getString("ClefPriveeCryptee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+
+        private void handleParties() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Demande de liste de parties reçues");
+
+            //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("partie", new String[]{"_id", "timestamp","hashPartie","clefPubliqueJ1","clefPubliqueJ2","clefPubliqueArbitre","voteJ1","voteJ2","voteArbitre","signatureJ1","signatureJ2","signatureArbitre","hashVote"}, "hashPartie Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("timestamp", result.getString("timestamp"));
+                        map2.put("hashPartie", result.getString("hashPartie"));
+                        map2.put("clefPubliqueJ1", result.getString("clefPubliqueJ1"));
+                        map2.put("clefPubliqueJ2", result.getString("clefPubliqueJ2"));
+                        map2.put("clefPubliqueArbitre", result.getString("clefPubliqueArbitre"));
+                        map2.put("voteJ1", result.getString("voteJ1"));
+                        map2.put("voteJ2", result.getString("voteJ2"));
+                        map2.put("voteArbitre", result.getString("voteArbitre"));
+                        map2.put("signatureJ1", result.getString("signatureJ1"));
+                        map2.put("signatureJ2", result.getString("signatureJ2"));
+                        map2.put("signatureArbitre", result.getString("signatureArbitre"));
+                        map2.put("hashVote", result.getString("hashVote"));
+
+
+                        // On ne se partage pas les comptes !      map2.put("ClefPriveeCryptee", result.getString("ClefPriveeCryptee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+        private void handlePartiesAEnvoyer() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Demande de liste de parties reçues");
+
+            //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("partieAEnvoyer", new String[]{"_id", "timestamp","hashPartie","clefPubliqueJ1","clefPubliqueJ2","clefPubliqueArbitre","voteJ1","voteJ2","voteArbitre","signatureJ1","signatureJ2","signatureArbitre"}, "hashPartie Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("timestamp", result.getString("timestamp"));
+                        map2.put("hashPartie", result.getString("hashPartie"));
+                        map2.put("clefPubliqueJ1", result.getString("clefPubliqueJ1"));
+                        map2.put("clefPubliqueJ2", result.getString("clefPubliqueJ2"));
+                        map2.put("clefPubliqueArbitre", result.getString("clefPubliqueArbitre"));
+                        map2.put("voteJ1", result.getString("voteJ1"));
+                        map2.put("voteJ2", result.getString("voteJ2"));
+                        map2.put("voteArbitre", result.getString("voteArbitre"));
+                        map2.put("signatureJ1", result.getString("signatureJ1"));
+                        map2.put("signatureJ2", result.getString("signatureJ2"));
+                        map2.put("signatureArbitre", result.getString("signatureArbitre"));
+
+
+
+                        // On ne se partage pas les comptes !      map2.put("ClefPriveeCryptee", result.getString("ClefPriveeCryptee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+        private void handlePartiesARecevoir() throws IOException {
+
+            // On créer une base de données et on renvoit la liste des données !
+            DatabaseManager db = DatabaseManager.getInstance();
+            System.out.println("Demande de liste de parties reçues");
+
+            //  outputStream.writeInt(20);
+
+
+
+            // On prépare le hash
+            String contenue = "";
+            try {
+                ResultSet result = db.select("partieARecevoir", new String[]{"_id", "timestamp","hashPartie","clefPubliqueJ1","clefPubliqueJ2","clefPubliqueArbitre","voteJ1","voteJ2","voteArbitre","signatureJ1","signatureJ2","signatureArbitre"}, "hashPartie Like '%'");
+                try {
+                    int i=0;
+                    outputStream.writeUTF("start");
+                    outputStream.flush();
+                    while (result.next()) {
+
+                        Map<String, Object> map2 = new HashMap<>();
+                        map2.put("id", result.getInt("_id"));
+                        map2.put("timestamp", result.getString("timestamp"));
+                        map2.put("hashPartie", result.getString("hashPartie"));
+                        map2.put("clefPubliqueJ1", result.getString("clefPubliqueJ1"));
+                        map2.put("clefPubliqueJ2", result.getString("clefPubliqueJ2"));
+                        map2.put("clefPubliqueArbitre", result.getString("clefPubliqueArbitre"));
+                        map2.put("voteJ1", result.getString("voteJ1"));
+                        map2.put("voteJ2", result.getString("voteJ2"));
+                        map2.put("voteArbitre", result.getString("voteArbitre"));
+                        map2.put("signatureJ1", result.getString("signatureJ1"));
+                        map2.put("signatureJ2", result.getString("signatureJ2"));
+                        map2.put("signatureArbitre", result.getString("signatureArbitre"));
+
+
+
+                        // On ne se partage pas les comptes !      map2.put("ClefPriveeCryptee", result.getString("ClefPriveeCryptee"));
+                        System.out.println("i:"+i+ " " + Json.serialize(map2));
+                        if ((Json.serialize(map2).length() + contenue.length()) > 32000) // Si le paquet est + gros que la capacité maximale par envoie de paquet
+                        {
+                            outputStream.writeUTF(contenue);
+
+                            outputStream.flush();
+                            contenue = "";
+                        }
+                        contenue += "|" + Json.serialize(map2) + "|";
+
+                        i++;
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                System.out.println("Erreur PseudoClefs");
+            }
+
+            if (contenue.length() > 0)
+                outputStream.writeUTF(contenue);
+
+
+            outputStream.writeUTF("stop");
+            outputStream.flush();
+
+
+            // Provisoire après ça sera amélioré
+
+
+        }
+
         private void handleEnvoyerPartie() throws IOException {
             // On va tenter de rajouter le compte dans la base de données...
             DatabaseManager db = DatabaseManager.getInstance();

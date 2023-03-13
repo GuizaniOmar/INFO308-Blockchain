@@ -8,18 +8,30 @@ import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+
+import static java.lang.Thread.sleep;
 
 public class Main {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         //   test();
      // Seul le serveur est utilisé dans la partie Github, le client est sur Android
    //     liste_ips();
 
-
-
-
         Server server = new Server(52000);
 
+        MultiClientSocket multiClientSocket2 = MultiClientSocket.getInstance();
+        multiClientSocket2.add("192.168.1.17", 52000);
+        Thread threadClient2 = new Thread(multiClientSocket2);
+
+       threadClient2.start();
+        System.out.println("Thread client lancé");
+        //  multiClientSocket2.demanderClefsPubliques();
+       // multiClientSocket2.demanderConfirmations();
+      // multiClientSocket2.demanderParties();
+       // multiClientSocket2.demanderPartiesARecevoir();
+       //multiClientSocket2.demanderPartiesAEnvoyer();
         try {
 
             PingIP.main(args);
@@ -29,7 +41,7 @@ public class Main {
         }
 
        // test_elo();
-     //     test_client();
+  //       test_client();
        // test_p2P();
     }
 
@@ -54,33 +66,19 @@ public class Main {
 
 
     }
-    public static void test_p2P() throws IOException {
- //     P2PServer server = new P2PServer(52000);
-   //     server.start();
-
-        // Pour utiliser le client
-        P2PClient client = new P2PClient(InetAddress.getByName("93.115.97.128"), 52000);
-        client.sendMessage("Bonjour tout le monde!");
-         String message = client.receiveMessage();
-        System.out.println("Message reçu: " + message);
-        client.close();
-
-        // Pour fermer le serveur
-      //  server.close();
-    }
     public static void test_elo(){
-        Partie partie1 = new Partie("Joueur A", "Joueur B", 1200, 1000, 1.0);
-        Partie partie2 = new Partie("Joueur C", "Joueur D", 800, 1500, 1);
+     //   Partie partie1 = new Partie("Joueur A", "Joueur B", 1200, 1000, 1.0);
+       // Partie partie2 = new Partie("Joueur C", "Joueur D", 800, 1500, 1);
 
-        List<Partie> parties = Arrays.asList(partie1, partie2);
+        //List<Partie> parties = Arrays.asList(partie1, partie2);
 
-        Elo.updateElo(parties);
+       // Elo.updateElo(parties);
                 //String joueur1, String joueur2, int eloJoueur1, int eloJoueur2, double score
     }
     public static void test_client(){
         Client client = null;
         try {
-            client = new Client("192.168.1.57", 52001);
+            client = new Client("192.168.1.17", 52000);
             client.login("user1", "motdepasse1");
 
 
